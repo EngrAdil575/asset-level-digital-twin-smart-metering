@@ -1,0 +1,6 @@
+Method,FA (%),All (%),Left ON overnight (%),Missed shift (%),Load spike (%),Schedule shift (%),Base-load increase (%)
+DBSCAN (eps fixed),81.1,88.8 ± 0.6,99.4,87.2,100.0,98.8,58.9
+Fesseha's model (K-means dist.) [1],5.1,9.9 ± 0.5,0.6,1.8,26.9,18.8,1.8
+DBSCAN density,5.1,15.8 ± 0.8,0.0,10.6,22.5,45.4,0.4
+Isolation Forest,5.1,28.4 ± 2.5,34.0,6.9,56.2,19.0,26.0
+Proposed (Context-aware kNN),5.1,55.7 ± 1.0,42.2,7.2,98.0,45.6,85.5

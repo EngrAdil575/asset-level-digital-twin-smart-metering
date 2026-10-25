@@ -1,0 +1,8 @@
+Group,No.,Content
+Hourly lags,27,"P(h-1)..P(h-24), P(h-168), 24-h mean and std"
+Calendar and asset,9,"sin/cos of hour and weekday, weekend, asset code"
+15-min readings,9,"q(h,1..8) and slope dq(h)"
+ON/OFF state,5,"s(h), s(h-24), hours in state, rho(d,t), rho(d,t-1)"
+Cross-asset,8,latest hourly and 15-min demand of the four assets
+Previous day,1,mean demand of the previous day
+Total,59,36 base + 23 added

@@ -1,0 +1,8 @@
+Method,Steady hours RMSE (kW),Switching hours RMSE (kW)
+Persistence,0.822,10.193
+LSTM,1.199,8.692
+CNN-LSTM,1.241,8.209
+XGBoost,1.028,8.322
+Weighted ensemble,1.025,8.305
+Two-stage hybrid,1.006,7.571
+Enhanced XGBoost,1.023,7.021

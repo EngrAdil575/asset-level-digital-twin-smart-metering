@@ -1,0 +1,5 @@
+Asset,Role,Days,LF,PBR,VI (kW^2)
+p_c,Press drive (production),223,0.588,1.758,23.743
+ahu_a,Air-handling unit (HVAC),345,0.925,1.212,3.577
+comp_b,Air compressor,223,0.579,1.707,28.895
+mh_a,Material handling,363,0.575,4.372,5.579

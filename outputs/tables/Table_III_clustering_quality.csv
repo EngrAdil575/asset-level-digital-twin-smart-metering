@@ -1,0 +1,5 @@
+Method,Days scored,Clusters,Silhouette (higher better),DBI (lower better)
+Fesseha's model (K-means) [1],1154,2,0.5452,0.7806
+"DBSCAN, eps = 0.03",254,3,0.8938,0.0751
+Fesseha's model (K-means) [1],254,3,0.8938,0.0751
+Fesseha's model (K-means) [1],254,2,0.9888,0.0083

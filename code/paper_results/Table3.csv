@@ -1,0 +1,14 @@
+Algorithm,Type,Forecasting algorithm in source,RMSE mean (kW),RMSE SD,MAE mean (kW),MAE SD,MAPE (%),R2,Skill vs persistence (%),Switching-hour RMSE (kW),Steady-hour RMSE (kW)
+Fesseha's model (K-means profile),Baseline-1,No,5.505,0.0,2.49,0.0,43.93,0.466,-180.8,9.981,5.302
+Fesseha's model (ARIMA),Baseline-2,Yes,1.914,0.0,0.675,0.0,14.25,0.935,2.3,9.591,0.933
+Fesseha's model (VAR),Baseline-2,Yes,1.953,0.0,0.733,0.0,15.08,0.933,0.4,9.416,1.063
+Fesseha's model (Random forest),Baseline-2,Yes,1.795,0.004,0.558,0.002,14.2,0.943,8.4,8.333,1.061
+Fesseha's model (XGBoost),Baseline-2,Yes,1.774,0.014,0.534,0.008,14.15,0.944,9.5,8.322,1.028
+Fesseha's model (LSTM),Baseline-2,Yes,1.929,0.072,0.839,0.13,17.22,0.934,1.6,8.692,1.199
+Fesseha's model (TCN),Baseline-2,Yes,1.908,0.072,0.761,0.077,18.25,0.936,2.7,8.32,1.249
+CNN-LSTM,Hybrid,Yes,1.887,0.028,0.717,0.065,17.89,0.937,3.7,8.209,1.241
+LSTM + XGBoost,Hybrid,Yes,1.83,0.027,0.672,0.026,16.09,0.941,6.6,8.502,1.081
+DBSCAN + XGBoost,Hybrid,Yes,1.78,0.008,0.541,0.001,14.32,0.944,9.2,8.346,1.031
+Weighted ensemble,Hybrid,Yes,1.77,0.006,0.601,0.043,14.97,0.945,9.7,8.305,1.025
+Two-stage hybrid,Hybrid,Yes,1.655,0.019,0.535,0.036,13.23,0.952,15.6,7.571,1.006
+Proposed (Enhanced XGBoost),Proposed,Yes,1.59,0.014,0.474,0.008,12.44,0.955,18.9,7.021,1.023

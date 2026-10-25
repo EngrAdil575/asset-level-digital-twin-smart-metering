@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the conference paper below and the original dataset of Flynn et al. (2026)."
+title: "AI-Driven Predictive Analytics and Anomaly Detection for Asset-Level Industrial Smart Metering Using a Digital Twin Framework"
+type: software
+authors:
+  - family-names: Ahmed
+    given-names: Bilal
+    affiliation: "Riphah International University, Pakistan"
+  - family-names: Khan
+    given-names: Muhammad Amad
+    affiliation: "Riphah International University, Pakistan"
+  - family-names: Nawaz
+    given-names: Saqib
+    affiliation: "Riphah International University, Pakistan"
+  - family-names: Zohaib
+    given-names: Adil
+    affiliation: "Riphah International University, Pakistan"
+  - family-names: Khalid
+    given-names: Sohail
+    affiliation: "University of Management and Technology, Pakistan"
+  - family-names: Sheh Zad
+    given-names: Haris
+    affiliation: "Pak-Austria Fachhochschule: Institute of Applied Sciences and Technology, Pakistan"
+year: 2026
+license: MIT
+references:
+  - type: data
+    title: "An open industrial energy dataset with asset-level measurements and high-coverage 15-minute aggregates from a manufacturing facility"
+    authors:
+      - family-names: Flynn
+        given-names: C.
+      - family-names: Murphy
+        given-names: T.
+      - family-names: Walsh
+        given-names: J.
+      - family-names: Riordan
+        given-names: D.
+    journal: "Data"
+    volume: 11
+    issue: 5
+    year: 2026
+    doi: "10.3390/data11050101"
+    license: CC-BY-4.0
