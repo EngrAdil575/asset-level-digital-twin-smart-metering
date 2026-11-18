@@ -1,0 +1,11 @@
+numpy
+pandas
+scipy
+scikit-learn
+xgboost
+statsmodels
+tensorflow
+matplotlib
+
+# The notebook is written for Google Colab. Versions are left unpinned to match
+# the Colab environment used in the study.

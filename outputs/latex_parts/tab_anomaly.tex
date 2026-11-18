@@ -1,0 +1,20 @@
+\begin{table*}[!t]
+\caption{Detection Rate (\%) of Injected Faults and of Unseen Fault Mixtures (1 Seeds)}
+\label{tab:anomaly}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{lccccccccccc}
+\toprule
+\textbf{Method} & \textbf{FA} & \textbf{All} & \textbf{ON} & \textbf{Miss} & \textbf{Spike} & \textbf{Shift} & \textbf{Base} & \textbf{Early} & \textbf{Part} & \textbf{Mix-2} & \textbf{Mix-3} \\
+\midrule
+DBSCAN ($\varepsilon$ fixed) & 85.0 & 95.3 & 100.0 & 86.6 & 100.0 & 100.0 & 80.3 & 100.0 & 100.0 & 95.3 & 93.1 \\
+\midrule
+K-means distance & 5.1 & 19.1 & 25.3 & 2.5 & 31.1 & 19.4 & 18.1 & 20.6 & 15.6 & 15.3 & 12.5 \\
+DBSCAN density & 5.1 & 21.0 & 25.0 & 9.4 & 28.6 & 33.4 & 16.9 & 24.7 & 7.8 & 16.6 & 14.7 \\
+Isolation Forest & 5.1 & 27.9 & 43.8 & 10.6 & 61.1 & 20.3 & 33.1 & 21.6 & 8.1 & 38.4 & 46.9 \\
+\textbf{Proposed (context-aware kNN)} & 5.1 & 49.6 & 46.6 & 6.2 & 99.3 & 46.6 & 80.3 & 47.2 & 22.8 & 38.4 & 28.8 \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}\begin{minipage}{0.97\textwidth}\footnotesize FA: normal days flagged. All: mean over the seven fault types. ON: left on overnight; Miss: missed shift; Shift: schedule shift; Base: base-load increase; Early: early shutdown; Part: partial load. Mix-2 and Mix-3: average of two or three randomly chosen faults, not used to design any detector.\end{minipage}
+\end{table*}

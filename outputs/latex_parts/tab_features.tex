@@ -1,0 +1,22 @@
+\begin{table}[!t]
+\caption{Input Features of the Proposed SA-XGBoost}
+\label{tab:features}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.4pt}
+\begin{tabular}{lcl}
+\toprule
+\textbf{Group} & \textbf{No.} & \textbf{Content} \\
+\midrule
+Hourly lags & 27 & $P_{h-1..h-24}$, $P_{h-168}$, 24-h mean, std \\
+Calendar, asset & 13 & sin/cos of hour, weekday; weekend; asset \\
+\midrule
+15-min readings & 9 & $q_{h,1..8}$ and slope $\Delta q_h$ \\
+ON/OFF state & 5 & $s_h$, $s_{h-24}$, hours in state, $\rho(d,t)$, $\rho(d,t{-}1)$ \\
+Cross-asset & 5 & mean demand and ON share of the other assets \\
+Previous day & 1 & mean demand of the previous day \\
+\midrule
+\textbf{Total} & \textbf{60} & 40 base + 20 added \\
+\bottomrule
+\end{tabular}
+\end{table}

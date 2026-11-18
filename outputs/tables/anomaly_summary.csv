@@ -1,0 +1,6 @@
+method,FA|mean,FA|std,All|mean,All|std,Left ON overnight|mean,Left ON overnight|std,Missed shift|mean,Missed shift|std,Load spike|mean,Load spike|std,Schedule shift|mean,Schedule shift|std,Base-load increase|mean,Base-load increase|std,Early shutdown|mean,Early shutdown|std,Partial load|mean,Partial load|std,Mixture of 2|mean,Mixture of 2|std,Mixture of 3|mean,Mixture of 3|std
+DBSCAN (fixed eps),85.00531185734621,,95.26785714285714,,100.0,,86.5625,,100.0,,100.0,,80.3125,,100.0,,100.0,,95.3125,,93.125,
+K-means distance,5.105750089940888,,19.08482142857143,,25.3125,,2.5,,31.071428571428573,,19.375,,18.125,,20.625,,15.625,,15.3125,,12.5,
+DBSCAN density,5.105750089940888,,20.967261904761905,,25.0,,9.375,,28.571428571428573,,33.4375,,16.875,,24.6875,,7.8125,,16.5625,,14.6875,
+Isolation Forest,5.105750089940888,,27.90922619047619,,43.75,,10.625,,61.07142857142857,,20.3125,,33.125,,21.5625,,8.125,,38.4375,,46.875,
+Proposed kNN,5.105750089940888,,49.56845238095238,,46.5625,,6.25,,99.28571428571429,,46.5625,,80.3125,,47.1875,,22.8125,,38.4375,,28.75,

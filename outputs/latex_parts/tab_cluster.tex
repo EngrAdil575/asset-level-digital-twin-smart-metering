@@ -1,0 +1,17 @@
+\begin{table}[!t]
+\caption{Clustering Quality on All Days and on the Same Days}
+\label{tab:cluster}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Days} & \textbf{Clust.} & \textbf{Silh.} $\uparrow$ & \textbf{DBI} $\downarrow$ \\
+\midrule
+K-means{,} all days & 2{,}272 & 2 & 0.4317 & 0.9263 \\
+DBSCAN{,} $\varepsilon{=}$0.03{,} kept days & 370 & 7 & 0.9066 & 0.0686 \\
+K-means{,} $k{=}$7{,} same days & 370 & 7 & 0.9066 & 0.0686 \\
+K-means{,} $k{=}$2{,} same days & 370 & 2 & 0.9373 & 0.1437 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,13 @@
+numpy
+pandas
+scipy
+scikit-learn
+xgboost
+statsmodels
+pyarrow
+matplotlib
+tensorflow
+
+# The pipeline is written for Google Colab (single cell, T4 GPU). tensorflow is
+# only needed for the neural baselines (RUN_NN=True: LSTM, CNN-LSTM, TCN).
+# Versions are left unpinned to match the Colab environment.
