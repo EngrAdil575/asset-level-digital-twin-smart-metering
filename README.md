@@ -9,7 +9,7 @@ This repository is the reproducibility record for the conference paper. It holds
 
 ## What the paper does
 
-The paper presents an asset-level digital-twin framework that integrates load profiling, short-term demand forecasting, and day-level anomaly detection for individual industrial machines. It is evaluated on an open year-long dataset of 15-minute readings from a manufacturing facility, covering eight assets: a press drive (`p_c`), an air-handling unit (`ahu_a`), an air compressor (`comp_b`), a material-handling system (`mh_a`), a main press (`p_h`), a utility circuit (`u_b`), an extraction fan (`ex_a`), and a process mixer (`mix_c`). A switching-aware XGBoost forecaster (SA-XGBoost) that augments standard lag features with sub-hourly readings, ON/OFF state descriptors, and cross-asset signals is compared over five seeds against classical baselines and deep-learning models (LSTM, CNN-LSTM, TCN, and hybrid/ensemble variants). Day-level anomaly detection is evaluated against seven injected fault types and an unseen-fault test built from mixtures of those faults, at a fixed false-alarm budget, and an offline digital twin visualizes machine state, forecasts, and day-level health.
+The paper presents an asset-level digital-twin framework that integrates load profiling, short-term demand forecasting, and day-level anomaly detection for individual industrial machines. It is evaluated on an open year-long dataset of 15-minute readings from a manufacturing facility, covering eight assets: a press drive (`p_c`), an air-handling unit (`ahu_a`), an air compressor (`comp_b`), a material-handling system (`mh_a`), a main press (`p_h`), a utility circuit (`u_b`), an extraction fan (`ex_a`), and a process mixer (`mix_c`). A switching-aware XGBoost forecaster (SA-XGBoost) that augments standard lag features with sub-hourly readings, ON/OFF state descriptors, and cross-asset signals is compared over five seeds against classical baselines and deep-learning models (LSTM, CNN-LSTM, TCN, and hybrid/ensemble variants). Day-level anomaly detection is evaluated against seven injected fault types and an unseen-fault test built from mixtures of those faults, at a fixed false-alarm budget. A metering view reports daily energy, 15-minute peak demand, and the excess energy of alert days, and an offline digital twin visualizes machine state, forecasts, and day-level health.
 
 ## Repository layout
 
@@ -24,9 +24,9 @@ asset-level-digital-twin-smart-metering/
 │   ├── asset_level_pipeline.py  Complete pipeline in one Google Colab cell (eight assets)
 │   ├── CODE_README.md                  How to run it and what the flags do
 │   └── requirements.txt
-├── outputs/                           Figures, tables, and LaTeX parts from one run of the pipeline
-│   ├── figures/                       Figs 1–7 (PNG, with vector PDFs for Figs 1–6)
-│   ├── tables/                        Result CSVs, numbers.json, and claims_check.txt
+├── outputs/                           Figures, tables, and LaTeX parts from the five-seed run
+│   ├── figures/                       Figs 1–8 (PNG, with vector PDFs for Figs 1–6 and 8)
+│   ├── tables/                        Result CSVs (forecast, anomaly, ablation, metering), numbers.json, claims_check.txt
 │   ├── latex_parts/                   LaTeX snippets for the numbers and tables
 │   └── OUTPUTS_README.txt             File-by-file description
 ├── digital_twin/
@@ -41,19 +41,19 @@ The dataset is redistributed in reduced form from:
 
 > C. Flynn, T. Murphy, J. Walsh, and D. Riordan, "An open industrial energy dataset with asset-level measurements and high-coverage 15-minute aggregates from a manufacturing facility," *Data*, vol. 11, no. 5, p. 101, 2026. doi:[10.3390/data11050101](https://doi.org/10.3390/data11050101). License: CC BY 4.0.
 
-The reduced copy in `data/` holds the first four assets as reliable three-phase-total 15-minute windows (31 December 2024 to 31 December 2025, UTC), under the same CC BY 4.0 license. The full pipeline uses all eight assets and reads the original dataset ZIP (or an `all_assets_rel.parquet`); obtain it from the source above. See `data/DATASET_README.txt`.
+The reduced copy in `data/` holds the first four assets as reliable three-phase-total 15-minute windows (31 December 2024 to 31 December 2025, UTC), under the same CC BY 4.0 license. The full pipeline uses all eight assets, as the file `eight_assets_15min.parquet` (same windows, eight assets). See `data/DATASET_README.txt`.
 
 ## Reproducing the results
 
-Open `code/asset_level_pipeline.py` as a single cell in Google Colab (Runtime → T4 GPU), place the dataset ZIP in Google Drive as `MyDrive/industrial_energy_dataset.zip` (or edit `DATA_ZIP`), and run the cell. It prepares the data, fits the forecaster and all baselines, runs the anomaly study with the seven injected faults and the unseen-fault test, builds the digital twin, and writes the figures, tables, and LaTeX parts, downloading them as `results.zip`.
+Open `code/asset_level_pipeline.py` as a single cell in Google Colab (Runtime → Run all; a GPU is optional and only speeds up the neural baselines). The cell downloads `eight_assets_15min.parquet` automatically from this repository's `data/` folder; if it is not reachable, the notebook asks you to upload it (or set `DATA_FILE` to its path). It then prepares the data, fits the forecaster and all baselines, runs the anomaly study with the seven injected faults and the unseen-fault test, computes the metering view, builds the digital twin, and writes the figures, tables, and LaTeX parts, downloading them as `results.zip`.
 
-Flags at the top control scope: `QUICK = True` runs one seed for a fast check; `QUICK = False` runs the five seeds used in the paper (42, 7, 123, 2024, 31) and takes about 1–2 hours. `RUN_NN` toggles the neural baselines. See `code/CODE_README.md`.
+Flags at the top control scope: `QUICK = False` (the default) runs the five seeds used in the paper (42, 7, 123, 2024, 31) and takes about 1–2 hours; `QUICK = True` runs one seed for a fast check. `RUN_NN` toggles the neural baselines. See `code/CODE_README.md`.
 
 Dependencies are in `code/requirements.txt`: numpy, pandas, scipy, scikit-learn, xgboost, statsmodels, pyarrow, matplotlib, and tensorflow (neural baselines).
 
 ## Outputs
 
-`outputs/figures/` holds Figures 1–7, `outputs/tables/` holds the result CSVs plus `numbers.json` and `claims_check.txt`, and `outputs/latex_parts/` holds the LaTeX snippets. `outputs/OUTPUTS_README.txt` maps each file. `claims_check.txt` lists each statement used in the paper text and whether the committed run supports it.
+`outputs/figures/` holds Figures 1–8, `outputs/tables/` holds the result CSVs (forecasting, anomaly detection, the feature ablation, and the metering view) plus `numbers.json` and `claims_check.txt`, and `outputs/latex_parts/` holds the LaTeX snippets. `outputs/OUTPUTS_README.txt` maps each file. `claims_check.txt` lists each statement used in the paper text and whether this five-seed run supports it.
 
 ## Offline digital twin
 

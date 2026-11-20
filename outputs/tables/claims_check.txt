@@ -1,8 +1,8 @@
 Statements used in the paper text and whether this run supports them (edit the text where False):
 
-[FALSE] SA-XGBoost has the lowest mean RMSE of all compared models
-[FALSE] SA-XGBoost is the most accurate model for every seed
-[FALSE] Diebold-Mariano p < 0.01 for every seed (primary test)
+[OK   ] SA-XGBoost has the lowest mean RMSE of all compared models
+[OK   ] SA-XGBoost is the most accurate model for every seed
+[OK   ] Diebold-Mariano p < 0.01 for every seed (primary test)
 [OK   ] best baseline algorithm on validation data is XGBoost
 [OK   ] persistence is hard to beat in steady hours (steady RMSE of all models within 0.5 kW of persistence)
 [OK   ] the proposed detector has the highest All rate among the budgeted detectors
@@ -13,5 +13,5 @@ Statements used in the paper text and whether this run supports them (edit the t
 [OK   ] DBSCAN reaches a higher silhouette than K-means on all days only because it discards days (noise share > 50%)
 [OK   ] K-means on the kept days scores higher than DBSCAN
 
-assets where the proposed model beats persistence and XGBoost: p_c, ahu_a, comp_b, mh_a, p_h, u_b
-assets where persistence is at least as good: none
+assets where the proposed model beats persistence and XGBoost: p_c, comp_b, mh_a, p_h, u_b, mix_c
+assets where persistence is at least as good: ahu_a

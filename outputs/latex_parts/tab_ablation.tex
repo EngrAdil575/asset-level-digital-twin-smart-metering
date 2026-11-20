@@ -1,0 +1,18 @@
+\begin{table}[!t]
+\caption{Contribution of the Added Input Groups (Mean of 5 Seeds)}
+\label{tab:ablation}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Variant} & \textbf{RMSE} & \textbf{$\Delta$ (\%)} & \textbf{Switch. RMSE} \\
+\midrule
+Single-stage SA-XGBoost (all 60 inputs) & 1.472 & 0.0 & 4.932 \\
+without 15-min readings & 1.604 & +9.0 & 5.794 \\
+without ON/OFF descriptors & 1.408 & -4.4 & 4.997 \\
+without cross-asset inputs & 1.474 & +0.1 & 4.936 \\
+XGBoost, base inputs only & 1.550 & +5.3 & 5.800 \\
+\bottomrule
+\end{tabular}
+\end{table}

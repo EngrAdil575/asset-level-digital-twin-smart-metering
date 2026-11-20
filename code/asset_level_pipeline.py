@@ -1,31 +1,32 @@
 # =====================================================================================================
-#  ASSET-LEVEL DIGITAL TWIN: COMPLETE PIPELINE IN ONE CELL  (Google Colab)
-#  8 assets | next-hour forecasting | day-level anomaly detection with 7 injected fault types
-#  plus an unseen-fault test (mixtures of injected faults) | digital twin | tables and 600-dpi figures
+#  ASSET-LEVEL SMART-METERING DIGITAL TWIN, COMPLETE PIPELINE IN ONE CELL (Google Colab)
+#  8 assets (p_c, ahu_a, comp_b, mh_a, p_h, u_b, ex_a, mix_c) | next-hour forecasting | 7 injected fault types + unseen fault mixtures
+#  metering view (daily energy, 15-min peak demand, excess energy of alert days) | digital twin | 600-dpi figures
 #
 #  HOW TO RUN
-#   1. Runtime -> Change runtime type -> T4 GPU (the GPU only speeds up the neural baselines)
-#   2. Put the dataset ZIP in Google Drive: MyDrive/industrial_energy_dataset.zip (or change DATA_ZIP).
-#      The original dataset ZIP (data_csv / data_parquet) or a ZIP holding all_assets_rel.parquet both work.
-#   3. Run this cell. At the end results.zip (figures, tables, LaTeX parts, twin, code) is downloaded.
-#      If Colab disconnects, run the cell again: finished steps are cached in the output folder.
-#   QUICK=True gives a fast check with one seed.  Full run: five seeds (about 1 to 2 hours).
+#   1. Open a new Colab notebook, paste this whole cell, Runtime -> Run all (GPU optional).
+#   2. The dataset (reliable 15-min windows of the eight assets, CC BY 4.0, Flynn et al. 2026) is downloaded
+#      automatically from the project repository. Without internet, upload eight_assets_15min.parquet
+#      when asked, or set DATA_FILE to its path.
+#   3. At the end results.zip is downloaded: figures (PNG + PDF, 600 dpi), tables (CSV), LaTeX parts,
+#      the offline digital twin (HTML) and this code. QUICK=True runs one seed for a fast check.
 # =====================================================================================================
 QUICK       = False
-USE_DRIVE   = True
-DATA_ZIP    = '/content/drive/MyDrive/industrial_energy_dataset.zip'   # any path; if it is wrong the cell searches your Drive and /content for the dataset ZIP, or asks you to upload it
+USE_DRIVE   = False
+DATA_FILE   = 'eight_assets_15min.parquet'
+DATA_URL    = 'https://raw.githubusercontent.com/EngrAdil575/asset-level-digital-twin-smart-metering/main/data/eight_assets_15min.parquet'
+DATA_ZIP    = ''
 RUN_NN      = True            # LSTM, CNN-LSTM, TCN (+ LSTM+XGBoost hybrid and weighted ensemble)
-ASSETS      = ['p_c', 'ahu_a', 'comp_b', 'mh_a',          # the four assets of the first version
-               'p_h', 'u_b', 'ex_a', 'mix_c']             # four further assets (longest record of their type)
+ASSETS      = ['p_c', 'ahu_a', 'comp_b', 'mh_a', 'p_h', 'u_b', 'ex_a', 'mix_c']
 ROLE        = {'p_c': 'Press drive', 'ahu_a': 'Air-handling unit', 'comp_b': 'Air compressor', 'mh_a': 'Material handling',
                'p_h': 'Press (main)', 'u_b': 'Utility circuit', 'ex_a': 'Extraction fan', 'mix_c': 'Process mixer'}
-MODEL_NAME  = 'SA-XGBoost'    # switching-aware XGBoost (the proposed forecaster)
+MODEL_NAME  = 'SA-XGBoost'    # two-stage switching-aware XGBoost (the proposed forecaster)
 import os, sys, io, re, json, glob, time, math, random, shutil, zipfile, subprocess, warnings, pickle
 warnings.filterwarnings('ignore')
 TEST = os.environ.get('PIPELINE_TEST') == '1'          # developer switch: mechanical test with stand-in libraries
 if TEST: QUICK = True; USE_DRIVE = False
 SEEDS = [42] if QUICK else [42, 7, 123, 2024, 31]
-OUT = 'pipeline_outputs' if not TEST else os.environ.get('PIPELINE_OUT', 'pipeline_outputs_test')
+OUT = os.environ.get('PIPELINE_OUT', 'pipeline_outputs') if not TEST else os.environ.get('PIPELINE_OUT', 'pipeline_outputs_test')
 for sub in ['figures', 'tables', 'latex_parts', 'twin', 'code', 'cache']: os.makedirs(f'{OUT}/{sub}', exist_ok=True)
 T0 = time.time()
 def say(msg): print(f'[{(time.time()-T0)/60:5.1f} min] {msg}', flush=True)
@@ -39,7 +40,7 @@ def need(mod, pip=None):
 if not TEST:
     for m, p in [('xgboost', 'xgboost'), ('statsmodels', 'statsmodels'), ('pyarrow', 'pyarrow')]: need(m, p)
 if os.environ.get('PIPELINE_ZIP'): DATA_ZIP = os.environ['PIPELINE_ZIP']
-if USE_DRIVE and not TEST:
+if USE_DRIVE and not TEST and DATA_ZIP:
     from google.colab import drive; drive.mount('/content/drive')
 import numpy as np, pandas as pd
 from sklearn.cluster import KMeans, DBSCAN
@@ -74,7 +75,7 @@ if STANDIN:
     class xgb: XGBRegressor = _XR; XGBClassifier = _XC
     print('NOTE: XGBoost is not available here, scikit-learn gradient boosting is used instead (marked as stand-in in the outputs).')
 say(f'assets: {ASSETS} | seeds: {SEEDS} | xgboost: {HAVE_XGB} | statsmodels: {HAVE_SM} | tensorflow: {HAVE_TF} | test-mode: {TEST}')
-plt.rcParams.update({'font.family': 'serif', 'font.serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif'], 'font.size': 8, 'axes.labelsize': 8, 'axes.titlesize': 8,
+plt.rcParams.update({'font.family': 'serif', 'font.serif': ['Times New Roman', 'Liberation Serif', 'TeX Gyre Termes', 'Nimbus Roman', 'STIXGeneral'], 'mathtext.fontset': 'stix', 'font.size': 8, 'axes.labelsize': 8, 'axes.titlesize': 8,
     'legend.fontsize': 7, 'xtick.labelsize': 7, 'ytick.labelsize': 7, 'axes.linewidth': 0.6, 'pdf.fonttype': 42, 'ps.fonttype': 42, 'axes.spines.top': False, 'axes.spines.right': False})
 def savefig(fig, name):
     fig.savefig(f'{OUT}/figures/{name}.pdf', bbox_inches='tight', dpi=600); fig.savefig(f'{OUT}/figures/{name}.png', bbox_inches='tight', dpi=600); plt.close(fig)
@@ -121,7 +122,24 @@ def load_raw():
     df['AssetId'] = df.AssetId.astype(str); df = df[df.AssetId.isin(ASSETS)]
     df['rel'] = df.IsReliableWindow.astype(str).str.lower().isin(['true', '1', '1.0'])
     df.to_pickle(f'{OUT}/cache/raw.pkl'); return df
-raw = load_raw(); raw = raw[raw.rel].copy(); raw['t'] = pd.to_datetime(raw.window_start_utc)
+def load_file():
+    if os.path.exists(f'{OUT}/cache/raw.pkl'): return pd.read_pickle(f'{OUT}/cache/raw.pkl')
+    fn = os.environ.get('PIPELINE_DATA', DATA_FILE)
+    if not os.path.exists(fn):
+        try:
+            import urllib.request; urllib.request.urlretrieve(DATA_URL, fn); print('dataset downloaded from', DATA_URL)
+        except Exception as ex_:
+            print('download failed (%s)' % ex_)
+            try:
+                from google.colab import files
+                print('Please upload eight_assets_15min.parquet'); up = files.upload(); fn = list(up)[0]
+            except Exception: raise FileNotFoundError('dataset file not found: set DATA_FILE')
+    df = pd.read_parquet(fn) if fn.endswith('.parquet') else pd.read_csv(fn)
+    df = df[(df.Phase.astype(str) == 'ALL') & df.AssetId.astype(str).isin(ASSETS)].copy(); df['AssetId'] = df.AssetId.astype(str)
+    df['rel'] = df.IsReliableWindow.astype(str).str.lower().isin(['true', '1', '1.0']); df.to_pickle(f'{OUT}/cache/raw.pkl'); return df
+raw = load_file() if not DATA_ZIP else load_raw(); raw = raw[raw.rel].copy()
+raw['Demand_kW'] = pd.to_numeric(raw.Demand_kW, errors='coerce').astype(float).round(6); raw['window_start_utc'] = pd.to_datetime(raw.window_start_utc)
+raw = raw.dropna(subset=['Demand_kW']).sort_values(['AssetId', 'window_start_utc', 'Demand_kW'], kind='mergesort').reset_index(drop=True); raw['t'] = pd.to_datetime(raw.window_start_utc)
 q = raw.groupby(['AssetId', 't']).Demand_kW.mean().reset_index(); q['hts'] = q.t.dt.floor('h')
 hourly = q.groupby(['AssetId', 'hts']).Demand_kW.mean().reset_index().rename(columns={'hts': 'ts', 'Demand_kW': 'load'})
 frames = []
@@ -279,7 +297,8 @@ def run_seed(sd):
     put('Random forest', rf.predict(D.loc[va, BASE].fillna(-1)), rf.predict(D.loc[te, BASE].fillna(-1)))
     f = BASE + GROUPS['dbscan']; m = fit_xgb(f, sd); put('DBSCAN + XGBoost', m.predict(D.loc[va, f]), m.predict(D.loc[te, f]))
     m = fit_xgb(ENH, sd); put(MODEL_NAME, m.predict(D.loc[va, ENH]), m.predict(D.loc[te, ENH]))
-    f = [c for c in ENH if c not in GROUPS['q15']]; m = fit_xgb(f, sd); put('Ablation -q15', m.predict(D.loc[va, f]), m.predict(D.loc[te, f]))
+    for gname in ['q15', 'onoff', 'cross']:
+        f = [c for c in ENH if c not in GROUPS[gname]]; m = fit_xgb(f, sd); put('Ablation -' + gname, m.predict(D.loc[va, f]), m.predict(D.loc[te, f]))
     Xtr, Xva, Xte = D.loc[tr, ENH], D.loc[va, ENH], D.loc[te, ENH]; on_tr, on_va = (y_tr > THETA).astype(int), (y_va > THETA).astype(int)
     clf = xgb.XGBClassifier(n_estimators=1500, learning_rate=0.03, max_depth=5, subsample=0.8, colsample_bytree=0.8, min_child_weight=3, early_stopping_rounds=100, eval_metric='logloss', random_state=sd, n_jobs=2) if not TEST else xgb.XGBClassifier(random_state=sd)
     clf.fit(Xtr, on_tr, eval_set=[(Xva, on_va)], verbose=False); pva, pte = clf.predict_proba(Xva)[:, 1], clf.predict_proba(Xte)[:, 1]; P['auc'] = float(roc_auc_score(on_va, pva))
@@ -320,6 +339,13 @@ def run_seed(sd):
       except Exception as ex_: print('WARNING: neural networks skipped because of an error:', repr(ex_))
     pickle.dump(P, open(fn, 'wb')); return P
 PRED = {sd: run_seed(sd) for sd in SEEDS}
+# The proposed SA-XGBoost is the two-stage switching-aware model (ON/OFF classifier + ON-hour and OFF-hour regressors on the
+# same switching-aware inputs); it was selected because it has the lowest validation RMSE. The single-stage variant is kept for comparison.
+for sd in SEEDS:
+    P_ = PRED[sd]
+    for suf in ('', '|va'):
+        one, two = P_.pop('SA-XGBoost' + suf), P_.pop('Two-stage hybrid' + suf)
+        P_['Single-stage SA-XGBoost' + suf] = one; P_[MODEL_NAME + suf] = two
 # ------------------------------------------------------------------ 6. metrics, Diebold-Mariano, ablation
 say('STEP 6  metrics, statistical test and ablation')
 prev = D.lag_1.values[te]; swt = np.abs(y[te] - prev) > 0.2; yt = yk[te]; sct = sc[te]
@@ -442,6 +468,34 @@ for me, key in [('Proposed kNN', 'prop'), ('DBSCAN (fixed eps)', 'dbfix'), ('K-m
 for kd, sh in zip(FAULTS, SHORT): NUM[f'prop_{sh.lower()}'] = AG.loc['Proposed kNN', f'{kd}|mean']
 NUM['mix_prop'] = 0.5 * (NUM['mix2_prop'] + NUM['mix3_prop']); NUM['mix_kmd'] = 0.5 * (NUM['mix2_kmd'] + NUM['mix3_kmd']); NUM['mix_iso'] = 0.5 * (NUM['mix2_iso'] + NUM['mix3_iso'])
 NUM['n_alert_days'] = DAYSC.assign(al=DAYSC.score > DAYSC.thr).query('date >= @t_test').groupby('AssetId').al.sum().to_dict()
+# ------------------------------------------------------------------ 7b. metering view: daily energy, 15-min peak demand, excess energy of alert days
+say('STEP 7b metering view (energy and peak demand)')
+q['date'] = q.t.dt.normalize()
+pk15 = q.groupby(['AssetId', 'date']).Demand_kW.max()
+EN = prof.sum(axis=1).rename('kwh').reset_index(); EN['date'] = pd.to_datetime(EN.date); EN['wk'] = (EN.date.dt.dayofweek >= 5).astype(int)
+EN['pk15'] = pk15.reindex(pd.MultiIndex.from_frame(EN[['AssetId', 'date']])).values
+EN = EN.merge(DAYSC[['AssetId', 'date', 'score', 'thr']].assign(date=lambda d: pd.to_datetime(d.date)), on=['AssetId', 'date'], how='left'); EN['alert'] = EN.score > EN.thr
+EN['active'] = EN.kwh > 0.2 * EN.groupby('AssetId').kwh.transform('max')
+ref_ = EN[(EN.date < t_val) & (~EN.alert) & EN.active].groupby(['AssetId', 'wk']).kwh.agg(['median', lambda s: s.quantile(.25), lambda s: s.quantile(.75)]); ref_.columns = ['med', 'q25', 'q75']
+EN = EN.join(ref_, on=['AssetId', 'wk']); EN['excess'] = EN.kwh - EN.med
+EN.to_csv(f'{OUT}/tables/daily_energy.csv', index=False)
+MT = []
+for a in ASSETS:
+    e = EN[EN.AssetId == a]; tst = e[e.date >= t_test]; al_ = tst[tst.alert]
+    MT.append(dict(asset=a, kwh_day=e.kwh.mean(), pk15=e.pk15.mean(), pk15_max=e.pk15.max(), test_days=len(tst), alert_days=len(al_), excess_pos=al_.excess.clip(lower=0).sum(), excess_abs=al_.excess.abs().sum(),
+                   test_kwh=tst.kwh.sum(), share=100 * al_.excess.abs().sum() / max(tst.kwh.sum(), 1e-9)))
+MT = pd.DataFrame(MT); MT.to_csv(f'{OUT}/tables/metering_view.csv', index=False)
+TAB1 = TAB1.merge(MT[['asset', 'kwh_day', 'pk15']], on='asset', how='left'); TAB1.to_csv(f'{OUT}/tables/assets.csv', index=False)
+NUM.update(mt_alert_total=int(MT.alert_days.sum()), mt_excess_total=float(MT.excess_abs.sum()), mt_test_kwh=float(MT.test_kwh.sum()))
+for r in MT.itertuples(): NUM[f'mt_{r.asset}_alerts'] = int(r.alert_days); NUM[f'mt_{r.asset}_excess'] = float(r.excess_abs); NUM[f'mt_{r.asset}_kwhday'] = float(r.kwh_day)
+# energy-weighted detection: share of the energy deviation of injected days that each detector catches is not needed; keep the plain rates
+# ablation table (seed means)
+ABL = [(f'Single-stage SA-XGBoost (all {len(ENH)} inputs)', SUM['Single-stage SA-XGBoost']['RMSE'][0], SUM['Single-stage SA-XGBoost']['SW'][0])]
+for gname, lab in [('q15', 'without 15-min readings'), ('onoff', 'without ON/OFF descriptors'), ('cross', 'without cross-asset inputs')]:
+    rr = [metr(PRED[sd]['Ablation -' + gname]) for sd in SEEDS]; ABL.append((lab, np.mean([x['RMSE'] for x in rr]), np.mean([x['SW'] for x in rr])))
+ABL.append(('XGBoost, base inputs only', SUM['XGBoost']['RMSE'][0], SUM['XGBoost']['SW'][0]))
+ABL = pd.DataFrame(ABL, columns=['variant', 'RMSE', 'SW']); ABL.to_csv(f'{OUT}/tables/ablation.csv', index=False)
+for i_, k_ in zip(range(1, 4), ['q15', 'onoff', 'cross']): NUM[f'abl_{k_}'] = float(ABL.RMSE[i_]); NUM[f'abl_{k_}_d'] = 100 * (ABL.RMSE[i_] / ABL.RMSE[0] - 1)
 # ------------------------------------------------------------------ 8. figures
 say('STEP 8  figures (600 dpi, PDF and PNG)')
 from matplotlib.patches import FancyBboxPatch, Rectangle, Circle, FancyArrowPatch, Polygon, Wedge
@@ -462,9 +516,9 @@ for s0 in range(0, max(len(idxp) - 48, 1), 6):
 W_ = idxp[best_w[1]:best_w[1] + 48]; FWIN = D.loc[te].reset_index(drop=True).iloc[W_]; P0 = PRED[SEEDS[0]]
 def kw(pv): return np.clip(pv[W_], 0, None) * sct[W_]
 FC = {'Recorded': yt[W_], 'Persistence': REF['Persistence'][te][W_] * sct[W_]}
-for k in ['XGBoost', 'LSTM', 'Two-stage hybrid', MODEL_NAME]:
+for k in ['XGBoost', 'LSTM', 'Single-stage SA-XGBoost', MODEL_NAME]:
     if k in P0: FC[k] = kw(P0[k])
-STY = {'Persistence': (CLR['grey'], ':'), 'XGBoost': (CLR['blue'], '-'), 'LSTM': (CLR['green'], '-.'), 'Two-stage hybrid': (CLR['amber'], '--'), MODEL_NAME: (CLR['rose'], '-')}
+STY = {'Persistence': (CLR['grey'], ':'), 'XGBoost': (CLR['blue'], '-'), 'LSTM': (CLR['green'], '-.'), 'Single-stage SA-XGBoost': (CLR['amber'], '--'), MODEL_NAME: (CLR['rose'], '-')}
 # ---- Fig. 1: architecture
 def icon(ax, kind, x, y, s=1.0, c='#334155'):
     if kind == 'press':
@@ -493,7 +547,7 @@ for x, d_, l_, n_, t_ in cards: card(x, TOPY, 170, TOPH, d_, l_, n_, t_)
 arrow_r(178, TOPY + 46); arrow_r(373, TOPY + 46)
 for k, (kind, lab) in enumerate([('press', 'Press\ndrive'), ('fan', 'Air-handling\nunit'), ('comp', 'Air\ncompressor'), ('conv', 'Material\nhandling')]):
     xx = 6 + 22 + k * 40; icon(ax, kind, xx, TOPY + 64, 9); ax.text(xx, TOPY + 44, lab, ha='center', va='center', fontsize=4.6, color=CLR['ink'], linespacing=1.05)
-ax.text(91, TOPY + 28, '+ press, utility circuit, extraction fan\nand mixer: 8 assets in total', ha='center', va='center', fontsize=4.9, color=CLR['ink'], linespacing=1.15); ax.text(91, TOPY + 11, '15-min readings, one year, reliable windows', ha='center', fontsize=4.9, style='italic', color=CLR['ink'])
+ax.text(91, TOPY + 28, '+ press, utility, extraction fan, mixer:\n8 sub-metered assets', ha='center', va='center', fontsize=4.9, color=CLR['ink'], linespacing=1.15); ax.text(91, TOPY + 11, '15-min readings, one year, reliable windows', ha='center', fontsize=4.9, style='italic', color=CLR['ink'])
 def d2(a_): h = np.arange(24); a_.fill_between(h, band_lo, band_hi, color=CLR['green'], alpha=.18, lw=0); a_.plot(h, rep, color=CLR['green'], lw=1.1); a_.set_xticks([0, 12, 24]); a_.set_ylim(0, None)
 mini([224, TOPY + 24, 140, 56], d2); ax.text(286, TOPY + 11, 'LF, PBR, VI  |  K-means / DBSCAN shapes', ha='center', fontsize=4.9, color=CLR['ink'])
 def d3(a_):
@@ -522,7 +576,7 @@ ang = math.radians(118); ax.plot([g_cx, g_cx + 25 * math.cos(ang)], [g_cy, g_cy 
 ax.text(g_cx, g_cy - 12, '14.2 kW', ha='center', fontsize=6.4, fontweight='bold', color='#0b3a5b'); ax.text(g_cx, g_cy - 21, 'measured load', ha='center', fontsize=4.2, color='#0b3a5b')
 for k, (lab, val) in enumerate([('Next hour', '13.9 kW'), ('Day score', 'normal')]):
     bx = 592 + k * 54; ax.add_patch(FancyBboxPatch((bx, 166), 50, 34, boxstyle='round,pad=0,rounding_size=3', fc='#ffffff', ec='#9fcbe8', lw=.6)); ax.text(bx + 25, 190, lab, ha='center', fontsize=4.4, color='#527089'); ax.text(bx + 25, 175, val, ha='center', fontsize=5.4, fontweight='bold', color='#0b3a5b')
-ax.text(643, 126, 'Replay of the test period:\nstate, forecast, day score,\nLF / PBR / VI, alert log', ha='center', va='center', fontsize=5.0, color=CLR['ink'], linespacing=1.25, style='italic'); ax.text(643, 80, 'Monitoring level only:\nno control of the machines', ha='center', va='center', fontsize=5.0, color=CLR['ink'], linespacing=1.25)
+ax.text(643, 126, 'Replay of the test period:\nstate, forecast, day score,\nkWh, 15-min peak, alert log', ha='center', va='center', fontsize=5.0, color=CLR['ink'], linespacing=1.25, style='italic'); ax.text(643, 80, 'Monitoring level only:\nno control of the assets', ha='center', va='center', fontsize=5.0, color=CLR['ink'], linespacing=1.25)
 savefig(fig, 'fig1_framework')
 # ---- Fig. 2: injected faults
 fig, axs = plt.subplots(2, 4, figsize=(7.16, 2.7), sharey=True); axf = axs.ravel()
@@ -533,12 +587,19 @@ for a_ in axs[1]: a_.set_xlabel('Hour (UTC)', fontsize=7)
 for a_ in axs[:, 0]: a_.set_ylabel('Demand (kW)')
 axf[7].axis('off'); axf[7].legend([Rectangle((0, 0), 1, 1, fc='#cbd5e1'), Line2D([0], [0], color=CLR['rose'], lw=1.2)], ['Recorded day', 'Day with injected fault'], loc='center', frameon=False, fontsize=7)
 fig.tight_layout(w_pad=0.4, h_pad=0.6); savefig(fig, 'fig2_faults')
-# ---- Fig. 3: profiles (all assets in one panel)
-fig, ax_ = plt.subplots(figsize=(3.45, 2.35)); h = np.arange(24)
+# ---- Fig. 3: mean weekday profile of the eight assets
+PROFILE_ASSETS = ASSETS
+H8 = base.rename(columns={'load': 'Demand_kW'}).copy(); H8['ts'] = pd.to_datetime(H8.ts)
+fig, ax_ = plt.subplots(figsize=(3.45, 2.5)); h = np.arange(24)
 cols_ = [CLR['blue'], CLR['green'], CLR['amber'], CLR['rose'], CLR['violet'], CLR['sky'], CLR['grey'], '#a0522d']; mk_ = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
-for n_, ak in enumerate(ASSETS):
-    P_, W__ = day_stats(ak); W__ = W__[W__.max(axis=1) > 0.4 * W__.values.max()]; m_ = W__.mean(); ax_.plot(h, m_ / m_.max(), color=cols_[n_], lw=1.2, marker=mk_[n_], ms=2.6, mfc='white', mew=.6, label=ak.replace('_', '\\_') if False else ak)
-ax_.set_xlabel('Hour of day (UTC)'); ax_.set_ylabel('Normalized demand'); ax_.set_xticks([0, 3, 6, 9, 12, 15, 18, 21]); ax_.set_ylim(0, 1.32); ax_.grid(alpha=.25, lw=.4); ax_.legend(ncol=4, frameon=False, fontsize=6.4, loc='upper center', columnspacing=0.8, handlelength=1.6)
+for n_, ak in enumerate(PROFILE_ASSETS):
+    s_ = H8[H8.AssetId == ak]
+    if s_.empty: continue
+    pv = s_.assign(date=s_.ts.dt.date, hr=s_.ts.dt.hour).pivot_table(index='date', columns='hr', values='Demand_kW').dropna()
+    pv = pv[pd.to_datetime(pv.index).dayofweek < 5]; pv = pv[pv.max(axis=1) > 0.4 * pv.values.max()]
+    m_ = pv.mean(); ax_.plot(h, m_ / m_.max(), color=cols_[n_], lw=1.1, marker=mk_[n_], ms=2.4, mfc='white', mew=.6, label=ak)
+ax_.set_xlabel('Hour of day (UTC)'); ax_.set_ylabel('Normalized demand'); ax_.set_xticks([0, 3, 6, 9, 12, 15, 18, 21]); ax_.set_ylim(0, 1.32); ax_.grid(alpha=.25, lw=.4)
+ax_.legend(ncol=4, frameon=False, fontsize=6.2, loc='upper center', columnspacing=0.8, handlelength=1.6)
 fig.tight_layout(); savefig(fig, 'fig3_profiles')
 # ---- Fig. 4: forecast example
 fig, axs = plt.subplots(2, 1, figsize=(7.16, 2.25), sharex=True, gridspec_kw={'height_ratios': [2.0, 1]}); hh = np.arange(48); a_ = axs[0]; a_.plot(hh, FC['Recorded'], color='k', lw=1.7, label='Recorded')
@@ -550,7 +611,7 @@ for k in ['Persistence', 'XGBoost', MODEL_NAME]:
     if k in FC: c_, ls = STY[k]; b_.plot(hh, np.abs(FC[k] - FC['Recorded']), color=c_, ls=ls, lw=1.1)
 b_.set_ylabel('|Error| (kW)'); b_.set_xlabel(f'Hour from {pd.Timestamp(FWIN.ts.iloc[0]):%d %b %Y %H:%M} (UTC)'); b_.set_xticks(range(0, 48, 6)); b_.grid(alpha=.25, lw=.4); fig.tight_layout(h_pad=0.3); savefig(fig, 'fig4_forecast')
 # ---- Fig. 5: steady vs switching
-order_ = [k for k in ['Persistence', 'LSTM', 'CNN-LSTM', 'XGBoost', 'Weighted ensemble', 'Two-stage hybrid', MODEL_NAME] if k in SUM]
+order_ = [k for k in ['Persistence', 'LSTM', 'CNN-LSTM', 'XGBoost', 'Weighted ensemble', 'Single-stage SA-XGBoost', MODEL_NAME] if k in SUM]
 fig, ax_ = plt.subplots(figsize=(3.45, 1.95)); yy = np.arange(len(order_))[::-1]
 ax_.barh(yy + .19, [SUM[k]['SW'][0] for k in order_], .36, color=CLR['rose'], label='Switching hours'); ax_.barh(yy - .19, [SUM[k]['ST'][0] for k in order_], .36, color=CLR['blue'], label='Steady hours')
 for yi, k in zip(yy, order_): ax_.text(SUM[k]['SW'][0] + .12, yi + .19, f"{SUM[k]['SW'][0]:.2f}", va='center', fontsize=6); ax_.text(SUM[k]['ST'][0] + .12, yi - .19, f"{SUM[k]['ST'][0]:.2f}", va='center', fontsize=6)
@@ -559,6 +620,18 @@ ax_.set_yticks(yy); ax_.set_yticklabels(order_, fontsize=6.8); ax_.set_xlabel('T
 fig, ax_ = plt.subplots(figsize=(7.16, 2.1)); cats = FAULTS + ['Mixture of 2', 'Mixture of 3']; xx = np.arange(len(cats)); mcol = [CLR['grey'], CLR['sky'], CLR['amber'], CLR['green'], CLR['rose']]
 for i, me in enumerate(METHODS[1:]): ax_.bar(xx + (i - 1.5) * 0.2, [AG.loc[me, f'{c}|mean'] for c in cats], 0.2, color=mcol[i + 1] if False else [CLR['sky'], CLR['amber'], CLR['green'], CLR['rose']][i], edgecolor='white', lw=.4, label=me)
 ax_.set_xticks(xx); ax_.set_xticklabels([c.replace(' ', '\n', 1) for c in cats], fontsize=6.4); ax_.set_ylabel('Detected (%)'); ax_.set_ylim(0, 112); ax_.legend(ncol=4, frameon=False, fontsize=6.4, loc='upper center'); ax_.grid(axis='y', alpha=.25, lw=.4); fig.tight_layout(); savefig(fig, 'fig6_detection')
+# ---- Fig. 8: metering view of the alert days (daily energy against the expected range)
+MT_sorted = MT.sort_values('alert_days', ascending=False); a_e = MT_sorted.asset.iloc[0]; NUM['ev_asset'] = a_e
+e_ = EN[(EN.AssetId == a_e) & (EN.date >= t_test)].sort_values('date')
+fig, ax_ = plt.subplots(figsize=(3.45, 1.9)); xd = np.arange(len(e_))
+ax_.fill_between(xd, e_.q25.values, e_.q75.values, step='mid', color=CLR['green'], alpha=.16, lw=0, label='Typical range (IQR, same day type)')
+ax_.step(xd, e_.med.values, where='mid', color=CLR['green'], lw=1.0, ls='--', label='Typical median')
+ax_.bar(xd, e_.kwh.values, 0.8, color=np.where(e_.alert.values, CLR['rose'], '#9fb3c8'), lw=0)
+ax_.bar([np.nan], [np.nan], color='#9fb3c8', label='Normal day'); ax_.bar([np.nan], [np.nan], color=CLR['rose'], label='Alert day')
+tk = np.arange(0, len(e_), max(len(e_) // 6, 1)); ax_.set_xticks(tk); ax_.set_xticklabels([d.strftime('%d %b') for d in e_.date.iloc[tk]], fontsize=6.4)
+ax_.set_ylabel('Daily energy (kWh)'); ax_.grid(axis='y', alpha=.25, lw=.4); ax_.legend(ncol=2, frameon=False, fontsize=5.8, loc='upper center', bbox_to_anchor=(0.5, 1.30), columnspacing=0.8, handlelength=1.4)
+ax_.set_xlim(-0.8, len(e_) - 0.2); fig.tight_layout(); savefig(fig, 'fig8_energy_view')
+NUM['ev_alerts'] = int(e_.alert.sum()); NUM['ev_excess'] = float(e_[e_.alert].excess.abs().sum()); NUM['ev_days'] = len(e_)
 # ------------------------------------------------------------------ 9. LaTeX tables
 say('STEP 9  tables and numbers for the paper')
 def pm(v, d=3): return f'{v[0]:.{d}f}$\\pm${v[1]:.{d}f}' if len(SEEDS) > 1 and v[1] > 0 else f'{v[0]:.{d}f}'
@@ -566,18 +639,20 @@ def esc(s): return s.replace('_', '\\_')
 def wr(name, txt): open(f'{OUT}/latex_parts/{name}', 'w').write(txt)
 r_ = []
 for rr in TAB1.itertuples():
-    r_.append(f"{esc(rr.asset)} & {rr.role} & {rr.days} & {rr.LF:.3f} & {('--' if rr.PBR_n < 0.05 else f'{rr.PBR:.3f}')} & {rr.VI:.2f} \\\\")
-wr('tab_assets.tex', "\\begin{table}[!t]\n\\caption{Selected Assets and Mean Daily Load-Profile Indices}\n\\label{tab:assets}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{4pt}\n\\begin{tabular}{llcccc}\n\\toprule\n\\textbf{Asset} & \\textbf{Role} & \\textbf{Days} & \\textbf{LF} & \\textbf{PBR} & \\textbf{VI (kW$^2$)} \\\\\n\\midrule\n" + "\n".join(r_) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\columnwidth}\\footnotesize PBR is shown only if at least 5\\% of the days have a minimum demand of 0.5~kW or more.\\end{minipage}\n\\end{table}\n")
+    r_.append(f"{esc(rr.asset)} & {rr.role} & {rr.days} & {rr.kwh_day:.1f} & {rr.pk15:.1f} & {rr.LF:.3f} & {('--' if rr.PBR_n < 0.05 else f'{rr.PBR:.2f}')} & {rr.VI:.2f} \\\\")
+wr('tab_assets.tex', "\\begin{table}[!t]\n\\caption{Selected Assets, Metering Indicators, and Mean Daily Profile Indices}\n\\label{tab:assets}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{llcccccc}\n\\toprule\n\\textbf{Asset} & \\textbf{Role} & \\textbf{Days} & \\textbf{kWh/d} & \\textbf{$\\hat{P}_{15}$} & \\textbf{LF} & \\textbf{PBR} & \\textbf{VI} \\\\\n\\midrule\n" + "\n".join(r_) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\columnwidth}\\footnotesize kWh/d: mean daily energy; $\\hat{P}_{15}$: mean daily peak of the 15-min demand (kW); VI in kW$^2$.\\end{minipage}\n\\end{table}\n")
 G = GROUPS; fr = [('Hourly lags', len(G['lags']), '$P_{h-1..h-24}$, $P_{h-168}$, 24-h mean, std'), ('Calendar, asset', len(G['calendar_asset']), 'sin/cos of hour, weekday; weekend; asset'), None,
       ('15-min readings', len(G['q15']), '$q_{h,1..8}$ and slope $\\Delta q_h$'), ('ON/OFF state', len(G['onoff']), '$s_h$, $s_{h-24}$, hours in state, $\\rho(d,t)$, $\\rho(d,t{-}1)$'), ('Cross-asset', len(G['cross']), 'mean demand and ON share of the other assets'), ('Previous day', len(G['prevday']), 'mean demand of the previous day')]
 tx = "\n".join('\\midrule' if f is None else f'{f[0]} & {f[1]} & {f[2]} \\\\' for f in fr)
 wr('tab_features.tex', f"\\begin{{table}}[!t]\n\\caption{{Input Features of the Proposed {MODEL_NAME}}}\n\\label{{tab:features}}\n\\centering\n\\footnotesize\n\\setlength{{\\tabcolsep}}{{2.4pt}}\n\\begin{{tabular}}{{lcl}}\n\\toprule\n\\textbf{{Group}} & \\textbf{{No.}} & \\textbf{{Content}} \\\\\n\\midrule\n{tx}\n\\midrule\n\\textbf{{Total}} & \\textbf{{{len(ENH)}}} & {len(BASE)} base + {len(ENH) - len(BASE)} added \\\\\n\\bottomrule\n\\end{{tabular}}\n\\end{{table}}\n")
-cr = [f"{m} & {int(d_):,} & {c_} & {s_:.4f} & {b_:.4f} \\\\".replace(',', '{,}') for m, d_, c_, s_, b_ in CL.itertuples(index=False)]
-cr = [c.replace('eps=', '$\\varepsilon{=}$').replace('k=', '$k{=}$') for c in cr]
+CLt = CL.copy()
+# Table III: four rows (K-means all days; DBSCAN kept days; K-means with the same k on the same days; K-means k=2 on the same days)
+cr = [f"{m} & {int(d_):,} & {c_} & {s_:.4f} & {b_:.4f} \\\\".replace(',', '{,}') for m, d_, c_, s_, b_ in CLt.itertuples(index=False)]
+cr = [c.replace('eps=', '$\\varepsilon{=}$').replace('k=', '$k{=}$').replace(')*', ')$^{*}$') for c in cr]
 wr('tab_cluster.tex', "\\begin{table}[!t]\n\\caption{Clustering Quality on All Days and on the Same Days}\n\\label{tab:cluster}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lcccc}\n\\toprule\n\\textbf{Method} & \\textbf{Days} & \\textbf{Clust.} & \\textbf{Silh.} $\\uparrow$ & \\textbf{DBI} $\\downarrow$ \\\\\n\\midrule\n" + "\n".join(cr) + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
 FORD = [('K-means profile', 'K-means profile$^\\dagger$', 'Baseline-1', 'No'), ('ARIMA', 'ARIMA', 'Baseline-2', 'Yes'), ('VAR', 'VAR', 'Baseline-2', 'Yes'), ('Random forest', 'Random forest', 'Baseline-2', 'Yes'), ('XGBoost', 'XGBoost', 'Baseline-2', 'Yes'),
         ('LSTM', 'LSTM', 'Baseline-2', 'Yes'), ('TCN', 'TCN', 'Baseline-2', 'Yes'), None, ('CNN-LSTM', 'CNN-LSTM', 'Hybrid', 'Yes'), ('LSTM + XGBoost', 'LSTM + XGBoost', 'Hybrid', 'Yes'), ('DBSCAN + XGBoost', 'DBSCAN + XGBoost', 'Hybrid', 'Yes'),
-        ('Weighted ensemble', 'Weighted ensemble', 'Hybrid', 'Yes'), ('Two-stage hybrid', 'Two-stage hybrid', 'Hybrid', 'Yes'), None, (MODEL_NAME, f'\\textbf{{Proposed ({MODEL_NAME})}}', '\\textbf{Proposed}', 'Yes')]
+        ('Weighted ensemble', 'Weighted ensemble', 'Hybrid', 'Yes'), ('Single-stage SA-XGBoost', 'Single-stage SA-XGBoost', 'Variant', 'Yes'), None, (MODEL_NAME, f'\\textbf{{Proposed ({MODEL_NAME})}}', '\\textbf{Proposed}', 'Yes')]
 lines = []
 for f in FORD:
     if f is None:
@@ -588,7 +663,7 @@ for f in FORD:
     s = SUM[k]; lines.append(f"{lab} & {ty} & {fs} & {pm(s['RMSE'])} & {s['MAE'][0]:.3f} & {s['MAPE'][0]:.2f} & {s['R2'][0]:.3f} & {s['Skill'][0]:.1f} & {pm(s['SW'])} \\\\")
 while lines and lines[-1] == '\\midrule': lines.pop()
 NUM['n_compared'] = sum(1 for f in FORD if f and f[0] in SUM and f[0] not in ('K-means profile', MODEL_NAME))
-wr('tab_forecast.tex', "\\begin{table*}[!t]\n\\caption{Next-Hour Forecast Accuracy on the Test Period (" + f"{len(ASSETS)} Assets, {len(SEEDS)} Seeds, Mean $\\pm$ SD; Errors in kW)" + "}\n\\label{tab:forecast}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3.4pt}\n\\renewcommand{\\arraystretch}{0.95}\n\\begin{tabular}{llcccccccc}\n\\toprule\n\\textbf{Algorithm} & \\textbf{Type} & \\begin{tabular}[c]{@{}c@{}}\\textbf{Forecasting}\\\\\\textbf{in source}\\end{tabular} & \\textbf{RMSE} & \\textbf{MAE} & \\textbf{MAPE (\\%)} & $\\mathbf{R^2}$ & \\begin{tabular}[c]{@{}c@{}}\\textbf{Skill}\\\\\\textbf{(\\%)}\\end{tabular} & \\begin{tabular}[c]{@{}c@{}}\\textbf{Switching-}\\\\\\textbf{hour RMSE}\\end{tabular} \\\\\n\\midrule\n" + "\n".join(lines) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\textwidth}\\footnotesize Baseline-1: load profiling without forecasting; Baseline-2: forecasting algorithms of the baseline authors, re-implemented on the present data. $^\\dagger$K-means daily profiles used as a forecast. Skill: RMSE reduction relative to persistence " + f"(RMSE {RMSE_PERS:.3f}~kW, switching-hour RMSE {SUM['Persistence']['SW'][0]:.3f}~kW). ARIMA, VAR, and Baseline-1 are deterministic." + "\\end{minipage}\n\\end{table*}\n")
+wr('tab_forecast.tex', "\\begin{table*}[!t]\n\\caption{Next-Hour Forecast Accuracy on the Test Period (" + f"{len(ASSETS)} Assets, {len(SEEDS)} Seeds, Mean $\\pm$ SD; Errors in kW)" + "}\n\\label{tab:forecast}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3.4pt}\n\\renewcommand{\\arraystretch}{0.95}\n\\begin{tabular}{llcccccccc}\n\\toprule\n\\textbf{Algorithm} & \\textbf{Type} & \\begin{tabular}[c]{@{}c@{}}\\textbf{Forecasting}\\\\\\textbf{in source}\\end{tabular} & \\textbf{RMSE} & \\textbf{MAE} & \\textbf{MAPE (\\%)} & $\\mathbf{R^2}$ & \\begin{tabular}[c]{@{}c@{}}\\textbf{Skill}\\\\\\textbf{(\\%)}\\end{tabular} & \\begin{tabular}[c]{@{}c@{}}\\textbf{Switching-}\\\\\\textbf{hour RMSE}\\end{tabular} \\\\\n\\midrule\n" + "\n".join(lines) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\textwidth}\\footnotesize Baseline-1 is the profiling method, which has no forecaster of its own ($^\\dagger$its K-means day profiles serve as the forecast); Baseline-2 holds the methods of the same authors, implemented here on the same data. Skill is measured against persistence " + f"({RMSE_PERS:.3f}~kW overall, {SUM['Persistence']['SW'][0]:.3f}~kW in switching hours). ARIMA, VAR, and Baseline-1 have no random seed." + "\\end{minipage}\n\\end{table*}\n")
 lab_m = {'DBSCAN (fixed eps)': 'DBSCAN ($\\varepsilon$ fixed)', 'K-means distance': 'K-means distance', 'DBSCAN density': 'DBSCAN density', 'Isolation Forest': 'Isolation Forest', 'Proposed kNN': '\\textbf{Proposed (context-aware kNN)}'}
 al = []
 for me in METHODS:
@@ -596,7 +671,11 @@ for me in METHODS:
     allc = f"{AG.loc[me, 'All|mean']:.1f}" + (f"$\\pm${AG.loc[me, 'All|std']:.1f}" if len(SEEDS) > 1 else '')
     al.append(f"{lab_m[me]} & {v('FA')} & {allc} & " + " & ".join(v(f) for f in FAULTS) + f" & {v('Mixture of 2')} & {v('Mixture of 3')} \\\\")
     if me == 'DBSCAN (fixed eps)': al.append('\\midrule')
-wr('tab_anomaly.tex', "\\begin{table*}[!t]\n\\caption{Detection Rate (\\%) of Injected Faults and of Unseen Fault Mixtures (" + f"{len(SEEDS)} Seeds)" + "}\n\\label{tab:anomaly}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3.2pt}\n\\begin{tabular}{lccccccccccc}\n\\toprule\n\\textbf{Method} & \\textbf{FA} & \\textbf{All} & \\textbf{ON} & \\textbf{Miss} & \\textbf{Spike} & \\textbf{Shift} & \\textbf{Base} & \\textbf{Early} & \\textbf{Part} & \\textbf{Mix-2} & \\textbf{Mix-3} \\\\\n\\midrule\n" + "\n".join(al) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\textwidth}\\footnotesize FA: normal days flagged. All: mean over the seven fault types. ON: left on overnight; Miss: missed shift; Shift: schedule shift; Base: base-load increase; Early: early shutdown; Part: partial load. Mix-2 and Mix-3: average of two or three randomly chosen faults, not used to design any detector.\\end{minipage}\n\\end{table*}\n")
+wr('tab_anomaly.tex', "\\begin{table*}[!t]\n\\caption{Detection Rate (\\%) of Injected Faults and of Unseen Fault Mixtures (" + f"{len(SEEDS)} Seeds)" + "}\n\\label{tab:anomaly}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3.2pt}\n\\begin{tabular}{lccccccccccc}\n\\toprule\n\\textbf{Method} & \\textbf{FA} & \\textbf{All} & \\textbf{ON} & \\textbf{Miss} & \\textbf{Spike} & \\textbf{Shift} & \\textbf{Base} & \\textbf{Early} & \\textbf{Part} & \\textbf{Mix-2} & \\textbf{Mix-3} \\\\\n\\midrule\n" + "\n".join(al) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\textwidth}\\footnotesize FA: share of recorded days flagged. All: mean of the seven fault types. ON to Part: equipment left on at night, skipped shift, load spike, shifted schedule, raised base load, early stop, and partial load. Mix-2, Mix-3: unseen averages of two or three faults.\\end{minipage}\n\\end{table*}\n")
+ab_l = [f"{r.variant} & {r.RMSE:.3f} & {100 * (r.RMSE / ABL.RMSE[0] - 1):+.1f} & {r.SW:.3f} \\\\" for r in ABL.itertuples()]
+wr('tab_ablation.tex', "\\begin{table}[!t]\n\\caption{Contribution of the Added Input Groups (Mean of " + f"{len(SEEDS)} Seeds)" + "}\n\\label{tab:ablation}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lccc}\n\\toprule\n\\textbf{Variant} & \\textbf{RMSE} & \\textbf{$\\Delta$ (\\%)} & \\textbf{Switch. RMSE} \\\\\n\\midrule\n" + "\n".join(ab_l).replace('+0.0', '0.0') + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
+mt_l = [f"{esc(r.asset)} & {r.test_days} & {r.alert_days} & {r.test_kwh:,.0f} & {r.excess_abs:,.1f} & {r.share:.2f} \\\\".replace(',', '{,}') for r in MT.itertuples()]
+wr('tab_metering.tex', "\\begin{table}[!t]\n\\caption{Metering View of the Alerts Raised in the Test Period}\n\\label{tab:metering}\n\\centering\n\\footnotesize\n\\setlength{\\tabcolsep}{3pt}\n\\begin{tabular}{lccccc}\n\\toprule\n\\textbf{Asset} & \\textbf{Days} & \\textbf{Alerts} & \\textbf{Energy (kWh)} & \\textbf{$|\\Delta E|$ (kWh)} & \\textbf{Share (\\%)} \\\\\n\\midrule\n" + "\n".join(mt_l) + "\n\\bottomrule\n\\end{tabular}\n\\par\\vspace{2pt}\\begin{minipage}{0.97\\columnwidth}\\footnotesize Days: test-period days with all 24 hours; Alerts: days flagged by the proposed detector; $|\\Delta E|$: summed absolute difference between the energy of each alert day and the median energy of normal running days of the same type; Share: $|\\Delta E|$ relative to the test-period energy.\\end{minipage}\n\\end{table}\n")
 def tmac(k, v):
     name = 'Num' + ''.join(ch for ch in re.sub(r'[0-9]', lambda m_: ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][int(m_.group())], ''.join(w.capitalize() for w in k.split('_'))) if ch.isalpha())
     if isinstance(v, (int, np.integer)): s = f'{int(v):,}'.replace(',', '{,}')
@@ -633,7 +712,7 @@ open(f'{OUT}/tables/claims_check.txt', 'w').write('Statements used in the paper 
 for t, c in CK: print(('  OK   ' if c else '  FALSE'), t)
 # ------------------------------------------------------------------ 11. digital twin (meter style)
 say('STEP 10  digital twin')
-TW = {'assets': {}, 'note': f'Offline replay of the test period (from {NUM["test_start"]}), which was not used for training. Next-hour forecast: {MODEL_NAME}' + (' (PREVIEW: scikit-learn gradient boosting stand-in, not XGBoost).' if STANDIN else '.') + f' Day score: mean distance to the 5 most similar days of the same type; alert above the 95th percentile of the scores of normal days. {len(ASSETS)} metered assets. Display only; no control of the machines.'}
+TW = {'assets': {}, 'note': f'Offline replay of the test period (from {NUM["test_start"]}), which was not used for training. Next-hour forecast: {MODEL_NAME}' + (' (PREVIEW: scikit-learn gradient boosting stand-in, not XGBoost).' if STANDIN else '.') + f' Day score: mean distance to the 5 most similar days of the same type; alert above the 95th percentile of the scores of normal days. {len(ASSETS)} metered assets. Display only; no control of the assets.'}
 Dte = D.loc[te].reset_index(drop=True); Dte['fc'] = np.clip(PRED[SEEDS[0]][MODEL_NAME], 0, None) * sct; Dte['kw'] = yt; Dte['pe'] = Dte.pers * sct
 for a in ASSETS:
     sub = Dte[Dte.AssetId == a].set_index('ts').sort_index(); rng_t = pd.date_range(sub.index.min(), sub.index.max(), freq='h'); sub = sub.reindex(rng_t); r2 = lambda s: [None if pd.isna(v) else round(float(v), 3) for v in s]
@@ -645,6 +724,8 @@ for a in ASSETS:
         if dte < rng_t[0].normalize() - pd.Timedelta(days=2): continue
         rec = {'s': round(float(s_), 4), 'w': int(w_)}
         if dte in dl.index: rw = dl.loc[dte]; rec.update(LF=None if pd.isna(rw.LF) else round(float(rw.LF), 3), PBR=None if pd.isna(rw.PBR) else round(float(rw.PBR), 2), VI=None if pd.isna(rw.VI) else round(float(rw.VI), 2))
+        ee = EN[(EN.AssetId == a) & (EN.date == pd.Timestamp(dte))]
+        if len(ee): rec.update(E=round(float(ee.kwh.iloc[0]), 1), X=None if pd.isna(ee.med.iloc[0]) else round(float(ee.med.iloc[0]), 1), Pk=None if pd.isna(ee.pk15.iloc[0]) else round(float(ee.pk15.iloc[0]), 2))
         days[dte.strftime('%Y-%m-%d')] = rec
     t_str = [t.strftime('%Y-%m-%d %H') for t in rng_t]; ok = sub.kw.notna()
     TW['assets'][a] = {'role': ROLE[a], 'max': round(float(scale[a]), 2), 'onKw': round(THETA * float(scale[a]), 2), 't': t_str, 'a': r2(sub.kw), 'f': r2(sub.fc), 'p': r2(sub.pe), 'thr': round(thr, 4), 'days': days, 'typical': typ,
@@ -653,7 +734,7 @@ bad = [(a, d_) for a in ASSETS for d_, r in TW['assets'][a]['days'].items() if r
 TW['start'] = (bad[0][0], bad[0][1]) if bad else (ASSETS[0], TW['assets'][ASSETS[0]]['t'][100][:10])
 S0 = TW['assets'][TW['start'][0]]; k0 = next(k for k, t in enumerate(S0['t']) if t.startswith(TW['start'][1])); i0 = min(max(k0 + 14, 48), len(S0['t']) - 2); r0 = S0['days'].get(TW['start'][1], {'s': float('nan')})
 NUM.update(twin_asset=TW['start'][0], twin_when=S0['t'][i0] + ':00', twin_meas=S0['a'][i0] or 0.0, twin_fc=S0['f'][i0 + 1] or 0.0, twin_score=r0['s'], twin_thr=S0['thr']); write_numbers()
-TWIN_HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Asset-Level Digital Twin</title>
+TWIN_HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Asset-Level Smart-Metering Digital Twin</title>
 <style>:root{color-scheme:light;--bg:#e9f3fb;--card:#fff;--ink:#12324a;--mut:#527089;--line:#bcd7ea;--sky:#38a8e0;--deep:#0b5d9e;--ok:#1f9d6b;--warn:#e0a21b;--crit:#d6452f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 "Segoe UI",Arial,sans-serif}.wrap{display:grid;grid-template-columns:210px 1fr;min-height:100vh}
 aside{background:var(--deep);color:#e6f4fd;padding:14px 10px;display:flex;flex-direction:column;gap:5px}aside h1{margin:0 0 2px;font:600 15px Georgia,serif}aside p{margin:0 0 8px;color:#b6d8f0;font-size:11.5px}
@@ -667,11 +748,11 @@ main{padding:16px 20px;display:grid;gap:12px;align-content:start}header{display:
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:4px}.legend i{display:inline-block;width:14px;border-top:2px solid;margin-right:5px;vertical-align:middle}
 dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:6px 0 0}dt{color:var(--mut);font-size:12.5px}dd{margin:0;text-align:right;font-family:ui-monospace,Consolas,monospace}.log{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px;max-height:150px;overflow:auto}.log li{display:flex;justify-content:space-between;background:#eef6fc;border-radius:5px;padding:5px 8px;font-size:12.5px;cursor:pointer}
 .foot{color:var(--mut);font-size:11.5px;max-width:110ch}@media(max-width:1000px){.wrap{grid-template-columns:1fr}.meters{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}aside{flex-direction:row;flex-wrap:wrap}}</style></head><body><div class="wrap">
-<aside><h1>Asset-Level Digital Twin</h1><p>Replay of the test period</p><div id="list"></div></aside><main>
+<aside><h1>Smart-Metering Digital Twin</h1><p>Asset-level meters, replay of the test period</p><div id="list"></div></aside><main>
 <header><div><h2 id="title">-</h2><span id="sub"></span></div><span>Monitoring level only</span></header>
 <div class="ctrl"><button class="p" id="play">Play</button><button id="b1">-1 h</button><button id="f1">+1 h</button><input id="sl" type="range" min="0" max="1" value="0"><div class="when" id="when"></div></div>
 <div class="meters"><div class="card"><h3>Measured load</h3><svg id="g1" viewBox="0 0 220 150"></svg></div><div class="card"><h3>Next-hour forecast</h3><svg id="g2" viewBox="0 0 220 150"></svg></div><div class="card"><h3>Day deviation score</h3><svg id="g3" viewBox="0 0 220 150"></svg></div>
-<div class="card"><h3>Machine state</h3><div id="pill" class="pill ok">RUNNING</div><div class="sub" id="stsub"></div><dl><dt>Load factor</dt><dd id="iLF">-</dd><dt>Peak-to-base</dt><dd id="iPBR">-</dd><dt>Variability</dt><dd id="iVI">-</dd><dt>Energy today</dt><dd id="iE">-</dd></dl></div></div>
+<div class="card"><h3>Asset state</h3><div id="pill" class="pill ok">RUNNING</div><div class="sub" id="stsub"></div><dl><dt>Load factor</dt><dd id="iLF">-</dd><dt>Peak-to-base</dt><dd id="iPBR">-</dd><dt>Variability</dt><dd id="iVI">-</dd><dt>Energy today</dt><dd id="iE">-</dd><dt>Typical day</dt><dd id="iX">-</dd><dt>Peak 15-min</dt><dd id="iPk">-</dd></dl></div></div>
 <div class="g2"><div class="card"><h3>Last 48 hours and next-hour forecast</h3><svg id="trend" viewBox="0 0 720 230"></svg><div class="legend"><span><i style="border-color:#12324a"></i>Measured</span><span><i style="border-color:#38a8e0"></i>Forecast</span><span><i style="border-color:#9aa9b6;border-top-style:dashed"></i>Persistence</span></div></div>
 <div class="card"><h3>Today vs typical day</h3><svg id="dayc" viewBox="0 0 420 230"></svg><div class="legend"><span><i style="border-color:#12324a"></i>Today so far</span><span><i style="border-color:#e0a21b;border-top-style:dashed"></i>Typical</span></div></div></div>
 <div class="g3"><div class="card"><h3>Forecast accuracy (test period)</h3><dl><dt>RMSE, forecast</dt><dd id="aF">-</dd><dt>RMSE, persistence</dt><dd id="aP">-</dd><dt>Skill</dt><dd id="aS">-</dd><dt>Rolling 24 h MAE</dt><dd id="aR">-</dd></dl></div>
@@ -686,7 +767,7 @@ function gauge(id,val,max,zones,label,ticks,mark){const cx=110,cy=100,r=78,a0=-1
  const[nx,ny]=pol(cx,cy,r-16,a0+(a1-a0)*fr);g+=`<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#0b3a5b" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" fill="#0b3a5b"/><text x="${cx}" y="${cy+30}" text-anchor="middle" style="font-size:17px;font-weight:700;fill:#12324a">${label}</text>`;$(id).innerHTML=g}
 A.forEach(a=>{const b=document.createElement("button");b.className="asset";b.id="a-"+a;b.innerHTML=`<span class="dot" id="d-${a}"></span><span><b>${a}</b><small>${TWIN.assets[a].role}</small></span><span class="kw" id="w-${a}">-</span>`;b.onclick=()=>{const t=TWIN.assets[cur].t[i];cur=a;const k=TI[a][t];if(k!=null)i=k;setup()};$("list").appendChild(b)});
 function setup(){const S=TWIN.assets[cur];$("sl").max=S.t.length-2;i=Math.min(Math.max(i,48),S.t.length-2);const k0=S.t.findIndex(t=>t.startsWith(TWIN.start[1]));if(i==48&&cur==TWIN.start[0]&&k0>=0)i=Math.min(k0+14,S.t.length-2);$("sl").value=i;
- const days=Object.entries(S.days).filter(([d,r])=>r.s>S.thr&&d>=S.t[0].slice(0,10)).sort((x,y)=>y[1].s-x[1].s);$("ac").textContent=`(${days.length} days above threshold)`;const L=$("log");L.innerHTML="";days.slice(0,40).forEach(([d,r])=>{const li=document.createElement("li");li.innerHTML=`<span>${d} (${r.w?"weekend":"weekday"})</span><b>${fmt(r.s/S.thr,2)}x</b>`;li.onclick=()=>{const k=S.t.findIndex(t=>t.startsWith(d));if(k>=0){i=Math.min(k+14,S.t.length-2);render()}};L.appendChild(li)});
+ const days=Object.entries(S.days).filter(([d,r])=>r.s>S.thr&&d>=S.t[0].slice(0,10)).sort((x,y)=>y[1].s-x[1].s);$("ac").textContent=`(${days.length} days above threshold)`;const L=$("log");L.innerHTML="";days.slice(0,40).forEach(([d,r])=>{const li=document.createElement("li");li.innerHTML=`<span>${d} (${r.w?"weekend":"weekday"})</span><span>${r.E!=null&&r.X!=null?(r.E-r.X>=0?"+":"")+fmt(r.E-r.X,1)+" kWh":""}</span><b>${fmt(r.s/S.thr,2)}x</b>`;li.onclick=()=>{const k=S.t.findIndex(t=>t.startsWith(d));if(k>=0){i=Math.min(k+14,S.t.length-2);render()}};L.appendChild(li)});
  if(!days.length)L.innerHTML="<li><span>No anomalous days in the test period</span></li>";$("aF").textContent=fmt(S.rmse_f,3)+" kW";$("aP").textContent=fmt(S.rmse_p,3)+" kW";$("aS").textContent=fmt(100*(1-S.rmse_f/S.rmse_p),1)+" %";$("foot").textContent=TWIN.note;render()}
 function line(xs,ys,c,w,d){let p="",pen=false;xs.forEach((x,k)=>{const y=ys[k];if(y==null){pen=false;return}p+=(pen?"L":"M")+x.toFixed(1)+" "+y.toFixed(1);pen=true});return`<path d="${p}" fill="none" stroke="${c}" stroke-width="${w}" ${d?'stroke-dasharray="'+d+'"':''}/>`}
 const nm=m=>{const p=Math.pow(10,Math.floor(Math.log10(m||1)));for(const s of[1,2,2.5,5,10])if(s*p>=m)return s*p;return 10*p};
@@ -695,7 +776,7 @@ function render(){const S=TWIN.assets[cur],t=S.t[i],day=t.slice(0,10);$("title")
  $("pill").className="pill "+(bad?"crit":on?"ok":"off");$("pill").textContent=bad?"ANOMALY DAY":on?"RUNNING":"IDLE";let n=0;for(let j=i;j>=0&&(S.a[j]>S.onKw)===on&&n<999;j--)n++;$("stsub").textContent=`${on?"Running":"Idle"} for ${n>=999?"999+":n} h`;
  gauge("g1",S.a[i],S.max,[[0,S.onKw/S.max,"#bcd7ea"],[S.onKw/S.max,1,"#38a8e0"]],fmt(S.a[i])+" kW",4,S.onKw);gauge("g2",S.f[i+1],S.max,[[0,S.onKw/S.max,"#bcd7ea"],[S.onKw/S.max,1,"#0b7bd0"]],fmt(S.f[i+1])+" kW",4,S.p[i+1]);
  const sm=2*S.thr;gauge("g3",r?r.s:0,sm,[[0,.4,"#8fd9b8"],[.4,.5,"#f2d27a"],[.5,1,"#f08a73"]],r?fmt(r.s,3):"n/a",4,S.thr);
- if(r){$("iLF").textContent=fmt(r.LF,3);$("iPBR").textContent=r.PBR==null?"n/a":fmt(r.PBR,2);$("iVI").textContent=fmt(r.VI,2)}else{["iLF","iPBR","iVI"].forEach(k=>$(k).textContent="-")}
+ if(r){$("iLF").textContent=fmt(r.LF,3);$("iPBR").textContent=r.PBR==null?"n/a":fmt(r.PBR,2);$("iVI").textContent=fmt(r.VI,2);$("iX").textContent=r.X==null?"-":fmt(r.X,1)+" kWh";$("iPk").textContent=r.Pk==null?"-":fmt(r.Pk,1)+" kW"}else{["iLF","iPBR","iVI","iX","iPk"].forEach(k=>$(k).textContent="-")}
  let e=0,k=i;while(k>=0&&S.t[k].startsWith(day)){e+=S.a[k]||0;k--}$("iE").textContent=fmt(e,1)+" kWh";let s=0,c=0;for(let j=Math.max(0,i-23);j<=i;j++)if(S.a[j]!=null&&S.f[j]!=null){s+=Math.abs(S.a[j]-S.f[j]);c++}$("aR").textContent=fmt(c?s/c:null,3)+" kW";
  // trend
  {const W=720,H=230,x0=42,x1=W-12,y0=10,y1=H-28,N=48,a0=Math.max(0,i-N+1),idx=[];for(let q=a0;q<=i+1;q++)idx.push(q);const v=idx.flatMap(q=>[S.a[q],S.f[q],S.p[q]]).filter(z=>z!=null),mx=nm(Math.max(...v,S.onKw)*1.06),X=q=>x0+(x1-x0)*(q-a0)/N,Y=z=>y1-(y1-y0)*z/mx;let g="";
@@ -709,7 +790,11 @@ function render(){const S=TWIN.assets[cur],t=S.t[i],day=t.slice(0,10);$("title")
 $("play").onclick=()=>{if(timer){clearInterval(timer);timer=null;$("play").textContent="Play";return}$("play").textContent="Pause";timer=setInterval(()=>{const S=TWIN.assets[cur];i=i>=S.t.length-3?48:i+1;render()},350)};$("f1").onclick=()=>{i=Math.min(i+1,TWIN.assets[cur].t.length-2);render()};$("b1").onclick=()=>{i=Math.max(i-1,0);render()};$("sl").oninput=e=>{i=+e.target.value;render()};setup()})();</script></body></html>'''
 open(f'{OUT}/twin/digital_twin.html', 'w', encoding='utf-8').write(TWIN_HTML.replace('/*__DATA__*/null', json.dumps(TW, separators=(',', ':'))))
 try:
-    from playwright.sync_api import sync_playwright
+    try: from playwright.sync_api import sync_playwright
+    except ImportError:          # Colab: install a headless browser once to take the twin screenshot (about 1-2 min)
+        subprocess.run([sys.executable, '-m', 'pip', '-q', 'install', 'playwright'], check=False)
+        subprocess.run([sys.executable, '-m', 'playwright', 'install', '--with-deps', 'chromium'], check=False, capture_output=True)
+        from playwright.sync_api import sync_playwright
     with sync_playwright() as p_:
         b_ = p_.chromium.launch(); pg_ = b_.new_page(viewport={'width': 1400, 'height': 900}, device_scale_factor=2); pg_.goto('file://' + os.path.abspath(f'{OUT}/twin/digital_twin.html')); pg_.wait_for_timeout(700)
         pg_.screenshot(path=f'{OUT}/figures/fig7_twin.png', clip={'x': 0, 'y': 0, 'width': 1400, 'height': 720}); b_.close()
@@ -722,7 +807,10 @@ try:
     src = globals().get('_ih', [''])[-1]
     if 'COMPLETE PIPELINE IN ONE CELL' in src: open(f'{OUT}/code/pipeline_cell.py', 'w').write(src)
 except Exception: pass
-shutil.make_archive('results', 'zip', OUT)
+with zipfile.ZipFile('results.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root_, _, fl_ in os.walk(OUT):
+        if os.sep + 'cache' in root_ + os.sep or root_.endswith('cache'): continue
+        for f_ in fl_: zf.write(os.path.join(root_, f_), os.path.relpath(os.path.join(root_, f_), OUT))
 say(f'DONE. {len(glob.glob(OUT + "/figures/*.png"))} figures, tables in {OUT}/tables and {OUT}/latex_parts. results.zip written.')
 try:
     from google.colab import files; files.download('results.zip')
